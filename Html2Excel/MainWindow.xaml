@@ -7,8 +7,8 @@
         mc:Ignorable="d"
         Title="MainWindow" Height="350" Width="525">
     <Grid>
-        <Button x:Name="button" Content="Webdokument laden" HorizontalAlignment="Left" VerticalAlignment="Top" Width="150" Margin="183,57,0,0" Click="button_Click"/>
-        <Button x:Name="button1" Content="Excel speichern" HorizontalAlignment="Left" VerticalAlignment="Top" Width="150" Margin="183,99,0,0" Click="button1_Click"/>
+        <Button x:Name="button" Content="DAT-Webdokument aufteilen" HorizontalAlignment="Left" VerticalAlignment="Top" Width="150" Margin="183,57,0,0" Click="button_Click"/>
+        <Button x:Name="button1" Content="In Excel konvertieren" HorizontalAlignment="Left" VerticalAlignment="Top" Width="150" Margin="183,99,0,0" Click="button1_Click"/>
 
     </Grid>
 </Window>

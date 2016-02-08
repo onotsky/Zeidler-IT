@@ -14,6 +14,7 @@ using System.Windows.Navigation;
 using System.Windows.Shapes;
 using Microsoft.Win32;
 using System.Data;
+using GemBox.Spreadsheet;
 using HtmlAgilityPack;
 using System.IO;
 
@@ -28,12 +29,14 @@ namespace Html2Excel
         public MainWindow()
         {
             InitializeComponent();
+            SpreadsheetInfo.SetLicense("FREE-LIMITED-KEY");
+            hDoc = new HtmlDocument();
         }
 
         private void button_Click(object sender, RoutedEventArgs e)
         {
             string htmlType = string.Empty;
-            hDoc = new HtmlDocument();
+
             OpenFileDialog oFile = new OpenFileDialog();
             oFile.Filter = "HTM-Dateien|*.htm|HTML-Dateien|*.html";
             Nullable<bool> result = oFile.ShowDialog();
@@ -50,7 +53,7 @@ namespace Html2Excel
                     {
                         if (str.Contains("\0!\0D\0O\0C\0T\0Y\0P\0E"))
                         {
-                            htmlType = str.Replace("\0",string.Empty);
+                            htmlType = str.Replace("\0", string.Empty);
                         }
                         else if (str.Contains("\0<\0h\0e\0a\0d\0>\0") && count != 0)
                         {
@@ -71,7 +74,7 @@ namespace Html2Excel
                         else if (str.Contains("\0<\0h\0e\0a\0d\0>\0") && count == 0)
                         {
                             count++;
-                            strList.Add(str.Replace("\0",string.Empty));
+                            strList.Add(str.Replace("\0", string.Empty));
                         }
                         else if (String.IsNullOrWhiteSpace(str))
                         {
@@ -81,7 +84,11 @@ namespace Html2Excel
                         {
                             continue;
                         }
-                        else if (str.Contains("\0<\0h\0t\0m\0l\0>") || str.Contains("\0<\0/\0h\0t\0m\0l\0") )
+                        else if (str.Contains("\0<\0h\0t\0m\0l\0>") || str.Contains("\0<\0/\0h\0t\0m\0l\0"))
+                        {
+                            continue;
+                        }
+                        else if(str.Contains("\0<\0h\0r\0>"))
                         {
                             continue;
                         }
@@ -94,26 +101,39 @@ namespace Html2Excel
 
             }
 
-            foreach (var table in hDoc.DocumentNode.SelectNodes("//table"))
-            {
-                foreach (var row in table.SelectNodes("tr"))
-                {
-                    foreach (var cell in row.SelectNodes("td"))
-                        MessageBox.Show(cell.InnerText);
-                }
-            }
+
 
         }
 
         private void button1_Click(object sender, RoutedEventArgs e)
         {
-            SaveFileDialog sFile = new SaveFileDialog();
-            sFile.Filter = "Excel-Dateien|*.xlsx";
-
-            Nullable<bool> result = sFile.ShowDialog();
+            OpenFileDialog oFile = new OpenFileDialog();
+            oFile.Filter = "HTM-Dateien|*.htm|HTML-Dateien|*.html";
+            oFile.InitialDirectory = AppDomain.CurrentDomain.BaseDirectory;
+            oFile.Multiselect = true;
+            Nullable<bool> result = oFile.ShowDialog();
 
             if (result == true)
             {
+                int count = 1;
+                foreach (string path in oFile.FileNames)
+                {
+                    ExcelFile ef = ExcelFile.Load(path);
+                    string dateiname = path.Split('.')[0];
+                    ef.Save(string.Format("{0}{1}.xlsx", dateiname, count));
+                    count++;
+
+
+                    hDoc.LoadHtml(path);
+                    foreach (var table in hDoc.DocumentNode.SelectNodes("//table"))
+                    {
+                        foreach (var row in table.SelectNodes("tr"))
+                        {
+                            foreach (var cell in row.SelectNodes("td"))
+                                MessageBox.Show(cell.InnerText);
+                        }
+                    }
+                }
             }
         }
     }
