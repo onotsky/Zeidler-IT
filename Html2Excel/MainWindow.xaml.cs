@@ -17,6 +17,7 @@ using System.Data;
 using GemBox.Spreadsheet;
 using HtmlAgilityPack;
 using System.IO;
+using System.Text.RegularExpressions;
 
 namespace Html2Excel
 {
@@ -48,7 +49,23 @@ namespace Html2Excel
                     List<string> strList = new List<string>();
                     string str = string.Empty;
                     int count = 0;
+                    string __str = sRead.ReadToEnd().Replace("\0", string.Empty);
 
+                    string[] splitStr = Regex.Split(__str, "<head>");
+
+                    foreach (var item in splitStr)
+                    {
+
+                        using (StreamWriter sWrite = new StreamWriter(File.Open(string.Format("{0}DAT{1}.htm", AppDomain.CurrentDomain.BaseDirectory, count.ToString()), FileMode.Create), Encoding.UTF8))
+                        {
+                            sWrite.WriteLine("< !DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\" >");
+                            sWrite.WriteLine("<html>");
+                            sWrite.WriteLine("<head></head>");
+                            sWrite.WriteLine("<body></body>");
+                            sWrite.WriteLine(item.Substring(item.IndexOf("<!-- table begin -->"), item.IndexOf("<!-- table end -->") - item.IndexOf("<!-- table begin -->")));
+                            sWrite.WriteLine("</html>");
+                        }
+                    }
                     while ((str = sRead.ReadLine()) != null)
                     {
                         if (str.Contains("\0!\0D\0O\0C\0T\0Y\0P\0E"))
@@ -57,6 +74,9 @@ namespace Html2Excel
                         }
                         else if (str.Contains("\0<\0h\0e\0a\0d\0>\0") && count != 0)
                         {
+                            List<string> tempList = new List<string>();
+
+
                             using (StreamWriter sWrite = new StreamWriter(File.Open(string.Format("{0}DAT{1}.htm", AppDomain.CurrentDomain.BaseDirectory, count.ToString()), FileMode.Create), Encoding.UTF8))
                             {
                                 sWrite.WriteLine(htmlType);
@@ -88,7 +108,7 @@ namespace Html2Excel
                         {
                             continue;
                         }
-                        else if(str.Contains("\0<\0h\0r\0>"))
+                        else if (str.Contains("\0<\0h\0r\0>"))
                         {
                             continue;
                         }
@@ -118,19 +138,23 @@ namespace Html2Excel
                 int count = 1;
                 foreach (string path in oFile.FileNames)
                 {
-                    ExcelFile ef = ExcelFile.Load(path);
+                    /*ExcelFile ef = ExcelFile.Load(path);
                     string dateiname = path.Split('.')[0];
                     ef.Save(string.Format("{0}{1}.xlsx", dateiname, count));
-                    count++;
+                    count++;*/
 
-
-                    hDoc.LoadHtml(path);
-                    foreach (var table in hDoc.DocumentNode.SelectNodes("//table"))
+                    using (Stream stream = File.Open(path, FileMode.Open))
                     {
-                        foreach (var row in table.SelectNodes("tr"))
+
+                        hDoc.OptionReadEncoding = false;
+                        hDoc.Load(stream, Encoding.UTF8);
+                        foreach (var table in hDoc.DocumentNode.SelectNodes("//table"))
                         {
-                            foreach (var cell in row.SelectNodes("td"))
-                                MessageBox.Show(cell.InnerText);
+                            foreach (var row in table.SelectNodes("tr"))
+                            {
+                                foreach (var cell in row.SelectNodes("td"))
+                                    MessageBox.Show(cell.InnerText);
+                            }
                         }
                     }
                 }
