@@ -14,10 +14,11 @@ using System.Windows.Navigation;
 using System.Windows.Shapes;
 using Microsoft.Win32;
 using System.Data;
-using GemBox.Spreadsheet;
 using HtmlAgilityPack;
 using System.IO;
 using System.Text.RegularExpressions;
+using Excel = Microsoft.Office.Interop.Excel;
+using System.Collections;
 
 namespace Html2Excel
 {
@@ -30,7 +31,6 @@ namespace Html2Excel
         public MainWindow()
         {
             InitializeComponent();
-            SpreadsheetInfo.SetLicense("FREE-LIMITED-KEY");
             hDoc = new HtmlDocument();
         }
 
@@ -44,85 +44,28 @@ namespace Html2Excel
 
             if (result == true)
             {
-                using (StreamReader sRead = new StreamReader(oFile.FileName))
+                using (Stream sr = File.Open(oFile.FileName, FileMode.Open))
                 {
                     List<string> strList = new List<string>();
                     string str = string.Empty;
-                    int count = 0;
-                    string __str = sRead.ReadToEnd().Replace("\0", string.Empty);
-
-                    string[] splitStr = Regex.Split(__str, "<head>");
-
-                    foreach (var item in splitStr)
+                    hDoc = new HtmlDocument();
+                    hDoc.OptionReadEncoding = false;
+                    hDoc.Load(sr, Encoding.UTF8);
+                    foreach (var header in hDoc.DocumentNode.SelectNodes("//head"))
                     {
-
-                        using (StreamWriter sWrite = new StreamWriter(File.Open(string.Format("{0}DAT{1}.htm", AppDomain.CurrentDomain.BaseDirectory, count.ToString()), FileMode.Create), Encoding.UTF8))
+                        for (int i = header.ChildNodes.Count - 1; i >= 0; i--)
                         {
-                            sWrite.WriteLine("< !DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\" >");
-                            sWrite.WriteLine("<html>");
-                            sWrite.WriteLine("<head></head>");
-                            sWrite.WriteLine("<body></body>");
-                            sWrite.WriteLine(item.Substring(item.IndexOf("<!-- table begin -->"), item.IndexOf("<!-- table end -->") - item.IndexOf("<!-- table begin -->")));
-                            sWrite.WriteLine("</html>");
+                            if (header.ChildNodes[i].InnerText == null || header.ChildNodes[i].InnerText == string.Empty)
+                                header.ChildNodes[i].Remove();
+                        }
+                        using (StreamWriter sWrite = new StreamWriter(string.Format("{0}\\{1}", AppDomain.CurrentDomain.BaseDirectory, System.Guid.NewGuid().ToString())))
+                        {
+                            header.WriteTo(sWrite);
                         }
                     }
-                    while ((str = sRead.ReadLine()) != null)
-                    {
-                        if (str.Contains("\0!\0D\0O\0C\0T\0Y\0P\0E"))
-                        {
-                            htmlType = str.Replace("\0", string.Empty);
-                        }
-                        else if (str.Contains("\0<\0h\0e\0a\0d\0>\0") && count != 0)
-                        {
-                            List<string> tempList = new List<string>();
 
-
-                            using (StreamWriter sWrite = new StreamWriter(File.Open(string.Format("{0}DAT{1}.htm", AppDomain.CurrentDomain.BaseDirectory, count.ToString()), FileMode.Create), Encoding.UTF8))
-                            {
-                                sWrite.WriteLine(htmlType);
-                                sWrite.WriteLine("<html>");
-                                foreach (string _str in strList)
-                                {
-                                    sWrite.WriteLine(_str);
-                                }
-                                sWrite.WriteLine("</html>");
-                            }
-                            strList.Clear();
-                            strList.Add(str.Replace("\0", string.Empty));
-                            count++;
-                        }
-                        else if (str.Contains("\0<\0h\0e\0a\0d\0>\0") && count == 0)
-                        {
-                            count++;
-                            strList.Add(str.Replace("\0", string.Empty));
-                        }
-                        else if (String.IsNullOrWhiteSpace(str))
-                        {
-                            continue;
-                        }
-                        else if (str.Equals("\0"))
-                        {
-                            continue;
-                        }
-                        else if (str.Contains("\0<\0h\0t\0m\0l\0>") || str.Contains("\0<\0/\0h\0t\0m\0l\0"))
-                        {
-                            continue;
-                        }
-                        else if (str.Contains("\0<\0h\0r\0>"))
-                        {
-                            continue;
-                        }
-                        else
-                        {
-                            strList.Add(str.Replace("\0", string.Empty));
-                        }
-                    }
                 }
-
             }
-
-
-
         }
 
         private void button1_Click(object sender, RoutedEventArgs e)
@@ -135,17 +78,22 @@ namespace Html2Excel
 
             if (result == true)
             {
-                int count = 1;
+                var excelApp = new Excel.Application();
+
+                excelApp.Visible = true;
+
+                excelApp.Workbooks.Add();
+
+                Excel._Worksheet workSheet = (Excel.Worksheet)excelApp.ActiveSheet;
+                ArrayList columns = new ArrayList() { "B", "C", "D", "E", "F", "G", "H", "I" };
+
+                var rowCounter = 1;
+
+
                 foreach (string path in oFile.FileNames)
                 {
-                    /*ExcelFile ef = ExcelFile.Load(path);
-                    string dateiname = path.Split('.')[0];
-                    ef.Save(string.Format("{0}{1}.xlsx", dateiname, count));
-                    count++;*/
-
                     using (Stream stream = File.Open(path, FileMode.Open))
                     {
-
                         hDoc.OptionReadEncoding = false;
                         hDoc.Load(stream, Encoding.UTF8);
                         foreach (var table in hDoc.DocumentNode.SelectNodes("//table"))
@@ -153,12 +101,55 @@ namespace Html2Excel
                             foreach (var row in table.SelectNodes("tr"))
                             {
                                 foreach (var cell in row.SelectNodes("td"))
-                                    MessageBox.Show(cell.InnerText);
+                                {
+                                    var columnCounter = 0;
+                                    if (cell.InnerHtml.Contains("table"))
+                                    {
+
+                                        foreach (var subTable in cell.SelectNodes("table"))
+                                        {
+                                            foreach (var subRow in subTable.SelectNodes("tr"))
+                                            {
+                                                foreach (var subCell in subRow.SelectNodes("td"))
+                                                {
+                                                    rowCounter++;
+                                                    string[] strMessages = System.Net.WebUtility.HtmlDecode(subCell.InnerText).Split(new string[] { "\r\n" }, StringSplitOptions.RemoveEmptyEntries);
+                                                    foreach (var str in strMessages)
+                                                    {
+                                                        if (string.IsNullOrWhiteSpace(str))
+                                                            continue;
+                                                        workSheet.Cells[rowCounter, columns[columnCounter]] = str;
+                                                    }
+
+                                                }
+
+                                            }
+                                        }
+                                        columnCounter++;
+                                    }
+                                    else if (cell.InnerHtml.Equals(string.Empty))
+                                    {
+                                        continue;
+                                    }
+                                    else
+                                    {
+                                        /*string[] strMessages = System.Net.WebUtility.HtmlDecode(cell.InnerText).Split(new string[] { "\r\n" }, StringSplitOptions.RemoveEmptyEntries);
+
+                                        foreach (var str in strMessages)
+                                        {
+                                            if (String.IsNullOrWhiteSpace(str))
+                                                continue;
+
+                                        }*/
+                                    }
+
+                                }
                             }
                         }
                     }
                 }
             }
         }
+
     }
 }
